@@ -1,0 +1,87 @@
+import os
+import re
+import shutil
+import fitz  # PyMuPDF library for PDF processing
+import pytesseract
+
+# Specify the path to the Tesseract executable (update this path)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR'
+
+# Define the ROI coordinates for the top-left corner
+x2 = 200  # Adjust this value based on the width of the handwritten area
+y2 = 50   # Adjust this value based on the height of the handwritten area
+
+# Specify a writable directory for temporary files (update this path)
+temp_dir = r'C:\Users\Kinzler13\Documents'  # Replace with a directory where you have write permissions
+
+def rename_pdfs_based_on_handwritten_name(directory):
+    for root, _, files in os.walk(directory):
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            if os.path.isfile(file_path) and filename.lower().endswith('.pdf'):
+                handwritten_name = extract_handwritten_name(file_path)
+                if handwritten_name:
+                    new_file_name = sanitize_filename(handwritten_name)
+                    new_file_path = os.path.join(root, f"{new_file_name}.pdf")
+                    try:
+                        shutil.move(file_path, new_file_path)
+                        print(f"Renamed {file_path} to {new_file_path}")
+                    except Exception as e:
+                        print(f"Error renaming {file_path} to {new_file_path}: {e}")
+                else:
+                    print(f"No handwritten name found in {file_path}")
+
+def extract_handwritten_name(pdf_path):
+    try:
+        pdf_document = fitz.open(pdf_path)
+        text = ""
+        for page_number in range(len(pdf_document)):
+            page = pdf_document.load_page(page_number)
+
+            # Define the ROI coordinates for the top-left corner
+            roi_coordinates = (0, 0, x2, y2)
+
+            # Extract the ROI as a pixmap
+            roi_pixmap = page.get_pixmap(matrix=fitz.Matrix(1, 1), clip=roi_coordinates)
+
+            # Save the pixmap as an image in the specified temporary directory
+            temp_image_path = os.path.join(temp_dir, "temp_roi.png")
+            roi_pixmap.save(temp_image_path, "png")
+
+            # Use OCR to extract text from the image
+            roi_text = extract_text_from_image(temp_image_path)
+
+            text += roi_text
+
+        return text
+    except Exception as e:
+        print(f"Error extracting text with OCR from {pdf_path}: {e}")
+        return None
+
+def extract_text_from_image(image_path):
+    try:
+        # Use OCR to extract text from the image
+        text = pytesseract.image_to_string(image_path)
+        return text.strip()
+    except Exception as e:
+        print(f"Error extracting text from image: {e}")
+        return ""
+
+def sanitize_filename(filename):
+    # Remove any characters that are not alphanumeric or spaces
+    return re.sub(r'[^a-zA-Z0-9\s]', '', filename)
+
+# Specify the directory where you want to process PDF files
+directory_to_process = r'C:\users\kinzler13\documents'
+
+# Call the function to rename PDF files based on the handwritten name found in the top-left corner
+rename_pdfs_based_on_handwritten_name(directory_to_process)
+
+
+
+
+c:\Users\Kinzler13\Documents>python test.py
+Error extracting text from image: [WinError 5] Access is denied
+No handwritten name found in C:\users\kinzler13\documents\scantoemailfrontiercooperative.com_20230906_112011.pdf
+Error extracting text from image: [WinError 5] Access is denied
+No handwritten name found in C:\users\kinzler13\documents\scantoemailfrontiercooperative.com_20230907_153059.pdf
