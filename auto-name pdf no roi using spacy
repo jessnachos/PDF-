@@ -1,0 +1,75 @@
+import os
+import re
+import shutil
+import fitz  # PyMuPDF library for PDF processing
+import spacy
+
+# Define the path to the spaCy language model (English)
+spacy_model_path = "en_core_web_sm"
+
+# Load the spaCy model
+nlp = spacy.load(spacy_model_path)
+
+# Define the minimum confidence threshold for OCR results
+confidence_threshold = 0  # Lowered to 0 to accept all OCR results
+
+# Specify a writable directory for temporary files (update this path)
+temp_dir = r'C:\Users\Kinzler13\Documents'  # Replace with a directory where you have write permissions
+
+def rename_pdfs_based_on_detected_name(directory):
+    for root, _, files in os.walk(directory):
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            if os.path.isfile(file_path) and filename.lower().endswith('.pdf'):
+                detected_name = extract_detected_name(file_path)
+                if detected_name:
+                    new_file_name = sanitize_filename(detected_name)
+                    new_file_path = os.path.join(root, f"{new_file_name}.pdf")
+                    try:
+                        # Create a copy of the original PDF
+                        shutil.copy(file_path, new_file_path)
+                        print(f"Created copy of {file_path} as {new_file_path}")
+
+                        # Rename the copy
+                        os.rename(new_file_path, os.path.join(root, f"{new_file_name}.pdf"))
+                        print(f"Renamed {new_file_path} to {new_file_name}.pdf")
+
+                        # Delete the original PDF file
+                        os.remove(file_path)
+                        print(f"Deleted original file: {file_path}")
+                    except Exception as e:
+                        print(f"Error processing {file_path}: {e}")
+                else:
+                    print(f"No name detected in {file_path}")
+
+def extract_detected_name(pdf_path):
+    try:
+        pdf_document = fitz.open(pdf_path)
+        text = ""
+        for page_number in range(len(pdf_document)):
+            page = pdf_document.load_page(page_number)
+
+            # Extract text from the page
+            page_text = page.get_text()
+
+            # Use spaCy for named entity recognition (NER) to extract names
+            doc = nlp(page_text)
+            detected_names = [ent.text for ent in doc.ents if ent.label_ == "PERSON"]
+
+            if detected_names:
+                text += "\n".join(detected_names)  # Join detected names with line breaks
+
+        return text.strip()
+    except Exception as e:
+        print(f"Error extracting names from {pdf_path}: {e}")
+        return None
+
+def sanitize_filename(filename):
+    # Remove any characters that are not alphanumeric or spaces
+    return re.sub(r'[^a-zA-Z0-9\s]', '', filename)
+
+# Specify the directory where you want to process PDF files
+directory_to_process = r'C:\users\kinzler13\documents'
+
+# Call the function to rename and delete original PDF files based on detected names
+rename_pdfs_based_on_detected_name(directory_to_process)
