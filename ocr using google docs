@@ -1,0 +1,67 @@
+# Import the necessary modules
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from googleapiclient.http import MediaFileUpload
+import os
+import time
+import docx
+import io
+import re
+from googleapiclient.http import MediaIoBaseDownload
+from tqdm import tqdm
+
+# Set up authentication using your OAuth 2.0 credentials
+creds = service_account.Credentials.from_service_account_file(
+    'C:\\Users\\Kinzler13\\Downloads\\extreme-lattice-399023-47e13206d83c.json',
+    scopes=['https://www.googleapis.com/auth/drive']
+)
+
+# Build the Google Drive API service
+drive_service = build('drive', 'v3', credentials=creds)
+
+# Specify the folder containing PDF files
+pdf_folder_path = 'C:\\Users\\Kinzler13\\Documents'
+
+# Specify the folder to download renamed PDF files
+download_folder_path = 'c:\\users\\kinzler13\\documents'
+
+# Scan the folder for PDF files
+pdf_files = [f for f in os.listdir(pdf_folder_path) if f.endswith('.pdf')]
+
+for pdf_file in tqdm(pdf_files, desc="Processing PDFs 🌟"):
+    # Upload the PDF file to Google Drive
+    file_metadata = {'name': pdf_file}
+    media = MediaFileUpload(os.path.join(pdf_folder_path, pdf_file), mimetype='application/pdf')
+    file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    file_id = file.get('id')
+
+    # Wait for conversion (Google Drive may convert the file automatically)
+    time.sleep(10)
+
+    # Access and process the converted document (in Google Docs format)
+    # Extract customer name using docx or other libraries
+    # Implement this part based on your document structure and name extraction logic
+
+    # Extract the customer's name from a Word document
+    word_doc_path = os.path.join(download_folder_path, f'renamed_{pdf_file}.docx')
+    if os.path.exists(word_doc_path):
+        doc = docx.Document(word_doc_path)
+        customer_name = ""
+        for paragraph in doc.paragraphs:
+            if "Customer Name" in paragraph.text:
+                # Extract the name from the paragraph or perform additional processing
+                customer_name = extract_name_from_text(paragraph.text)
+                break
+
+        # Rename the original PDF file on Google Drive
+        # Use the extracted customer name to rename the file
+        # Implement this part to rename the file appropriately
+
+    # Download the renamed PDF file to the download folder
+    request = drive_service.files().export_media(fileId=file_id, mimeType='application/pdf')
+    download_filename = os.path.join(download_folder_path, f'renamed_{customer_name}.pdf')
+    fh = io.FileIO(download_filename, 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
